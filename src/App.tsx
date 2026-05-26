@@ -48,11 +48,15 @@ export default function App() {
   const [selectedVoiceName, setSelectedVoiceName] = useState("");
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [history, setHistory] = useState<PlayerHistoryItem[]>([]);
+  const [isAutoAdvance, setIsAutoAdvance] = useState(true);
 
   // Speech loop state refs
   const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const nextTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isPlayingRef = useRef(false);
+  const isAutoAdvanceRef = useRef(isAutoAdvance);
+  const selectedQuestionIndexRef = useRef(selectedQuestionIndex);
+  const questionsRef = useRef(questions);
 
   // 1. Initial Meta loading (Fetch index.json from /data/)
   useEffect(() => {
@@ -102,25 +106,44 @@ export default function App() {
     loadEditionDetails();
   }, [selectedEdition]);
 
-  // Sync isPlaying state with a mutable ref for asynchronous timers
+  // Sync states with mutable refs for asynchronous speech loops
   useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
 
-  // 3. Load available synthesizers (Korean voices prioritized)
+  useEffect(() => {
+    isAutoAdvanceRef.current = isAutoAdvance;
+  }, [isAutoAdvance]);
+
+  useEffect(() => {
+    selectedQuestionIndexRef.current = selectedQuestionIndex;
+  }, [selectedQuestionIndex]);
+
+  useEffect(() => {
+    questionsRef.current = questions;
+  }, [questions]);
+
+  // 3. Load available synthesizers (Only Korean voices)
   useEffect(() => {
     const loadVoices = () => {
       if (typeof window !== "undefined" && window.speechSynthesis) {
         const availableVoices = window.speechSynthesis.getVoices();
-        const korVoices = availableVoices.filter((v) => v.lang.includes("ko") || v.lang.includes("KR"));
-        const otherVoices = availableVoices.filter((v) => !v.lang.includes("ko") && !v.lang.includes("KR"));
-        const sorted = [...korVoices, ...otherVoices];
-        setVoices(sorted);
+        const korVoices = availableVoices.filter((v) => v.lang.toLowerCase().includes("ko") || v.lang.toLowerCase().includes("kr"));
+        setVoices(korVoices);
 
-        if (sorted.length > 0 && !selectedVoiceName) {
-          // Google 한국어 음성을 우선적으로 검색하여 기본값으로 지정
-          const googleKorVoice = korVoices.find((v) => v.name.toLowerCase().includes("google"));
-          const defaultVoice = googleKorVoice || korVoices.find((v) => v.default) || korVoices[0] || sorted[0];
+        if (korVoices.length > 0 && !selectedVoiceName) {
+          // 고품질/프리미엄 한국어 음성 우선순위 (Siri, Premium, Enhanced, Seha, Google 등)
+          const highQualityKorVoice = korVoices.find((v) => {
+            const name = v.name.toLowerCase();
+            return (
+              name.includes("siri") ||
+              name.includes("premium") ||
+              name.includes("enhanced") ||
+              name.includes("seha") ||
+              name.includes("google")
+            );
+          });
+          const defaultVoice = highQualityKorVoice || korVoices.find((v) => v.default) || korVoices[0];
           setSelectedVoiceName(defaultVoice ? defaultVoice.name : "");
         }
       }
@@ -182,8 +205,15 @@ export default function App() {
         if (currentIndex < playbackItems.length - 1) {
           setCurrentIndex((prev) => prev + 1);
         } else {
-          setIsPlaying(false);
           saveToHistory();
+          if (isAutoAdvanceRef.current && selectedQuestionIndexRef.current < questionsRef.current.length - 1) {
+            // Automatically transits to next exam question
+            setSelectedQuestionIndex((prev) => prev + 1);
+            setCurrentIndex(0);
+            setIsPlaying(true);
+          } else {
+            setIsPlaying(false);
+          }
         }
       }, delay);
     };
@@ -195,7 +225,13 @@ export default function App() {
           if (currentIndex < playbackItems.length - 1) {
             setCurrentIndex((prev) => prev + 1);
           } else {
-            setIsPlaying(false);
+            if (isAutoAdvanceRef.current && selectedQuestionIndexRef.current < questionsRef.current.length - 1) {
+              setSelectedQuestionIndex((prev) => prev + 1);
+              setCurrentIndex(0);
+              setIsPlaying(true);
+            } else {
+              setIsPlaying(false);
+            }
           }
         }, 400);
       }
@@ -204,12 +240,12 @@ export default function App() {
     window.speechSynthesis.speak(utterance);
   };
 
-  // Re-run voice synthesizer loop whenever currentIndex, isPlaying status, rate, or voice choice changes
+  // Re-run voice synthesizer loop whenever currentIndex, isPlaying status, rate, voice choice, or selected question changes
   useEffect(() => {
     if (isPlaying) {
       speakCurrentItem();
     }
-  }, [currentIndex, isPlaying, selectedVoiceName, playbackRate]);
+  }, [currentIndex, isPlaying, selectedVoiceName, playbackRate, selectedQuestionIndex]);
 
   const togglePlayPause = () => {
     if (isPlaying) {
@@ -327,7 +363,7 @@ export default function App() {
             <div>
               <div className="flex items-center justify-center md:justify-start gap-2">
                 <h1 className="text-xl md:text-2xl font-black tracking-tight text-white">
-                  토목구조기술사 기출답안 낭독 시스템
+                  기술사 기출답안 낭독 오디오 플레이어
                 </h1>
                 <span className="text-[10px] font-bold bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full uppercase">
                   V3.0 Pro
@@ -544,6 +580,8 @@ export default function App() {
                 onVoiceChange={setSelectedVoiceName}
                 voices={voices}
                 title={activeQuestion && selectedEdition ? `${selectedEdition.edition}회 ${activeQuestion.title}` : "대기 중"}
+                isAutoAdvance={isAutoAdvance}
+                onToggleAutoAdvance={() => setIsAutoAdvance((prev) => !prev)}
               />
             )}
 
@@ -617,7 +655,7 @@ export default function App() {
       {/* 3. 푸터 영역 */}
       <footer className="max-w-7xl mx-auto px-6 mt-16 text-center text-xs text-gray-450" id="main-app-footer">
         <p className="border-t border-gray-205 pt-6 text-gray-400 font-mono">
-          토목구조기술사(Civil Structural Professional Engineer) 기출답안 낭독 보드 — 귀로 복습하는 집중 마스터 도구
+          기술사 기출답안 낭독 보드 — 귀로 복습하는 집중 마스터 도구
         </p>
         <p className="mt-2 text-gray-400">
           본 도구는 유료 API 요금 걱정 없이 브라우저 내장(TTS) 엔진만을 백퍼센트 활용하여 기전력을 최대로 보호합니다.

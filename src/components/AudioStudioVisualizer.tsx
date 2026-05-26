@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { PlaybackItem } from "../types";
-import { Volume2, Play, Pause, SkipForward, SkipBack, RotateCcw, Monitor, Film, Sliders, ChevronRight } from "lucide-react";
+import { Volume2, Play, Pause, SkipForward, SkipBack, RotateCcw, ChevronRight } from "lucide-react";
 
 interface AudioStudioVisualizerProps {
   items: PlaybackItem[];
@@ -16,6 +16,8 @@ interface AudioStudioVisualizerProps {
   onVoiceChange: (voiceName: string) => void;
   voices: SpeechSynthesisVoice[];
   title: string;
+  isAutoAdvance: boolean;
+  onToggleAutoAdvance: () => void;
 }
 
 export default function AudioStudioVisualizer({
@@ -32,8 +34,9 @@ export default function AudioStudioVisualizer({
   onVoiceChange,
   voices,
   title,
+  isAutoAdvance,
+  onToggleAutoAdvance,
 }: AudioStudioVisualizerProps) {
-  const [studioMode, setStudioMode] = useState<"standard" | "cinema-16-9">("standard");
   const [waveHeight, setWaveHeight] = useState<number[]>(Array(16).fill(15));
 
   // Simulated audio waveform movement when playing
@@ -53,20 +56,14 @@ export default function AudioStudioVisualizer({
 
   return (
     <div
-      className={`relative transition-all duration-500 rounded-3xl overflow-hidden shadow-lg border ${
-        studioMode === "cinema-16-9"
-          ? "bg-black border-slate-950 text-white min-h-[460px] flex flex-col justify-between p-8"
-          : "bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 border-slate-700 text-white p-6 md:p-8"
-      }`}
+      className="relative transition-all duration-500 rounded-3xl overflow-hidden shadow-lg border bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 border-slate-700 text-white p-6 md:p-8"
       id="studio-visualizer-card"
     >
       {/* 백그라운드 빛 효과 (스탠다드 모드 전용) */}
-      {studioMode === "standard" && (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none" id="ambient-glows">
-          <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl animate-pulse" />
-        </div>
-      )}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none" id="ambient-glows">
+        <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl animate-pulse" />
+      </div>
 
       {/* 헤더 행 */}
       <div className="relative z-10 flex items-center justify-between border-b border-white/10 pb-4 mb-6" id="visualizer-header">
@@ -80,32 +77,6 @@ export default function AudioStudioVisualizer({
           </span>
           <span className="text-white/40 text-xs font-sans">|</span>
           <span className="text-xs text-indigo-200 truncate max-w-[150px] md:max-w-xs">{title}</span>
-        </div>
-
-        {/* 16:9 시네마틱 모드 전환 버튼 (Screen Record 대용) */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => setStudioMode("standard")}
-            className={`px-3 py-1 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer ${
-              studioMode === "standard" ? "bg-white/20 text-white" : "text-white/60 hover:text-white"
-            }`}
-            title="기본 인터페이스 보기"
-            id="std-mode-btn"
-          >
-            <Monitor className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">스탠다드</span>
-          </button>
-          <button
-            onClick={() => setStudioMode("cinema-16-9")}
-            className={`px-3 py-1 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer ${
-              studioMode === "cinema-16-9" ? "bg-amber-500 text-black font-semibold" : "text-white/60 hover:text-white"
-            }`}
-            title="MP4 화면 녹화용 자막 스크린 전환"
-            id="cinema-mode-btn"
-          >
-            <Film className="w-3.5 h-3.5" />
-            <span className={`${studioMode === "cinema-16-9" ? "" : "text-amber-400"}`}>16:9 녹화스크린</span>
-          </button>
         </div>
       </div>
 
@@ -122,11 +93,7 @@ export default function AudioStudioVisualizer({
             
             {/* 문장 자막 텍스트 */}
             <h1
-              className={`font-sans leading-snug tracking-tight transition-all duration-300 ${
-                studioMode === "cinema-16-9"
-                  ? "text-3xl md:text-4xl lg:text-4xl text-amber-400 font-extrabold"
-                  : "text-2xl md:text-2xl lg:text-3xl text-white font-bold"
-              }`}
+              className="font-sans leading-snug tracking-tight transition-all duration-300 text-2xl md:text-2xl lg:text-3xl text-white font-bold"
               id="active-subtitle-text"
               style={{ textShadow: "0 4px 12px rgba(0, 0, 0, 0.4)" }}
             >
@@ -134,7 +101,7 @@ export default function AudioStudioVisualizer({
             </h1>
 
             {/* 자막 설명 / 다음 구절 미리보기 */}
-            {currentIndex < items.length - 1 && studioMode === "standard" && (
+            {currentIndex < items.length - 1 && (
               <p className="text-xs text-white/30 font-semibold flex items-center justify-center gap-1 mt-6 animate-pulse">
                 <span>다음 구절:</span>
                 <span className="font-sans italic">{items[currentIndex + 1].text.substring(0, 30)}...</span>
@@ -151,21 +118,19 @@ export default function AudioStudioVisualizer({
         )}
       </div>
 
-      {/* 시네마 모드가 아닐 때만 노출되는 파형 그래픽 */}
-      {studioMode === "standard" && (
-        <div className="relative z-10 flex items-end justify-center gap-1 h-14 mb-6" id="audio-wave-bars">
-          {waveHeight.map((h, i) => (
-            <div
-              key={i}
-              className="w-1.5 rounded-full bg-gradient-to-t from-blue-600 via-indigo-400 to-cyan-300 opacity-80"
-              style={{
-                height: `${h}px`,
-                transition: "height 0.1s ease-in-out",
-              }}
-            />
-          ))}
-        </div>
-      )}
+      {/* 파형 그래픽 */}
+      <div className="relative z-10 flex items-end justify-center gap-1 h-14 mb-6" id="audio-wave-bars">
+        {waveHeight.map((h, i) => (
+          <div
+            key={i}
+            className="w-1.5 rounded-full bg-gradient-to-t from-blue-600 via-indigo-400 to-cyan-300 opacity-80"
+            style={{
+              height: `${h}px`,
+              transition: "height 0.1s ease-in-out",
+            }}
+          />
+        ))}
+      </div>
 
       {/* 재생 및 오디오 세부 컨트롤 패널 */}
       <div className="relative z-10 border-t border-white/10 pt-5" id="audio-control-bar">
@@ -220,8 +185,23 @@ export default function AudioStudioVisualizer({
             )}
           </div>
 
-          {/* 속도 및 음성선택 제어 (스탠다드 모드만) */}
+          {/* 속도 및 음성선택 제어 */}
           <div className="flex flex-wrap items-center gap-4" id="voice-speed-controls">
+            {/* 자동 다음문제 재생 토글 */}
+            <div className="flex items-center gap-1.5 mr-2" id="auto-advance-wrapper">
+              <label className="inline-flex items-center gap-2 cursor-pointer text-xs select-none font-bold">
+                <input
+                  type="checkbox"
+                  checked={isAutoAdvance}
+                  onChange={onToggleAutoAdvance}
+                  className="sr-only peer"
+                  id="auto-advance-toggle"
+                />
+                <div className="relative w-8 h-4 bg-white/20 rounded-full peer peer-checked:after:translate-x-4 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-indigo-600" />
+                <span className="text-white/80 hover:text-white transition-colors">자동 다음문제</span>
+              </label>
+            </div>
+
             {/* 배속 조절 */}
             <div className="flex items-center gap-1.5" id="speed-wrapper">
               <span className="text-[11px] text-white/40 uppercase font-mono">Rate:</span>

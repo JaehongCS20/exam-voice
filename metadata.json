@@ -1,0 +1,6 @@
+{
+  "name": "기술사 논술문제 음성 청취 플레이어",
+  "description": "토목구조기술사와 같은 기술사 기출문제 모범답안을 듣기 쉽고 또렷한 낭독용 TTS 음성 및 자막으로 변환하여 학습하는 청취 플레이어 시스템입니다.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
